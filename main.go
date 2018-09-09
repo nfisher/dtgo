@@ -50,17 +50,6 @@ func main() {
 
 var header = []string{"color", "diameter", "label"}
 
-func IsNumeric(v interface{}) bool {
-	switch v.(type) {
-	case int:
-		return true
-	case float64:
-		return true
-	}
-
-	return false
-}
-
 func ClassCounts(rr Rows) LabelCount {
 	counts := make(LabelCount)
 
