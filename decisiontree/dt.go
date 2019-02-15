@@ -55,6 +55,9 @@ func (q Question) String() string {
 	switch q.Value.(type) {
 	case int:
 		condition = ">="
+
+	case float64:
+		condition = ">="
 	}
 
 	return fmt.Sprintf("Is %s %s %v?", q.header[q.Column], condition, q.Value)
