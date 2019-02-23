@@ -22,7 +22,7 @@ type FloatSet map[float64]bool
 type Question struct {
 	Column int
 	Value  interface{}
-	header []string
+	header string
 }
 
 func (q Question) Match(example []interface{}) bool {
@@ -60,7 +60,7 @@ func (q Question) String() string {
 		condition = ">="
 	}
 
-	return fmt.Sprintf("Is %s %s %v?", q.header[q.Column], condition, q.Value)
+	return fmt.Sprintf("Is %s %s %v?", q.header, condition, q.Value)
 }
 
 type DecisionNode struct {
@@ -71,7 +71,7 @@ type DecisionNode struct {
 	Predictions LabelCount
 }
 
-func Build(rr Rows, header []string) *DecisionNode {
+func Train(rr Rows, header []string) *DecisionNode {
 	gain, question := findBestSplit(rr, header)
 
 	if gain == 0 || question == nil {
@@ -83,8 +83,8 @@ func Build(rr Rows, header []string) *DecisionNode {
 
 	trueRows, falseRows := partition(rr, *question)
 
-	trueBranch := Build(trueRows, header)
-	falseBranch := Build(falseRows, header)
+	trueBranch := Train(trueRows, header)
+	falseBranch := Train(falseRows, header)
 	return &DecisionNode{
 		Question:    question,
 		TrueBranch:  trueBranch,
@@ -259,7 +259,7 @@ func findBestSplit(rr Rows, header []string) (float64, *Question) {
 		vv := uniqueVals(rr, col)
 
 		for _, v := range vv {
-			q := Question{Column: col, Value: v, header: header}
+			q := Question{Column: col, Value: v, header: header[col]}
 			trueRows, falseRows := partition(rr, q)
 			if len(trueRows) == 0 || len(falseRows) == 0 {
 				continue

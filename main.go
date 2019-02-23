@@ -4,14 +4,76 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"log"
-	"math/rand"
 	"os"
-	"regexp"
-	"strconv"
 
-	dt "github.com/nfisher/dtgo/decisiontree"
+	"github.com/nfisher/dtgo/data"
+	"github.com/nfisher/dtgo/decisiontree"
 )
+
+func Exec(inputFile string) {
+
+	rows, err := readCSV(inputFile)
+	if err != nil {
+		fmt.Println("Unable to read CSV:", err.Error())
+		return
+	}
+
+	d := data.New(rows[0], 0.20)
+
+	err = data.Coerce(rows, d)
+	if err != nil {
+		fmt.Println("Unable to coerce CSV:", err.Error())
+		return
+	}
+
+
+	decisionTree(d)
+}
+
+func decisionTree(d *data.TrainingAppender) {
+	training, testData := d.Data()
+	tree := decisiontree.Train(training, d.Header())
+
+	decisiontree.Print(tree, "")
+
+	fmt.Println("========================================================================")
+	fmt.Println("training size:", len(training), "test size:", len(testData))
+
+	for _, td := range testData {
+		actual := td[len(td)-1]
+		prediction := decisiontree.PredictionMap(decisiontree.Classify(td, tree).Predictions)
+		keys := make([]string, 0, len(prediction))
+		if len(prediction) > 1 {
+			fmt.Printf("Actual: %s, Predicted: %s, From: %v\n", actual, prediction, td)
+			continue
+		}
+		for k := range prediction {
+			keys = append(keys, k)
+		}
+		predicted := keys[0]
+		if actual != predicted {
+			fmt.Printf("Actual: %s, Predicted: %s, From: %v\n", actual, keys[0], td)
+			continue
+		}
+
+		fmt.Println("Predicted:", actual)
+	}
+}
+
+func readCSV(inputFile string) ([][]string, error) {
+	r, err := os.Open(inputFile)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	rows, err := csv.NewReader(r).ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
 
 func main() {
 	var inputFile string
@@ -19,66 +81,10 @@ func main() {
 	flag.Parse()
 
 	if inputFile == "" {
-		fmt.Println("An input filename must be provided.\n")
+		fmt.Println("An input filename must be provided.")
 		flag.Usage()
 		return
 	}
 
-	r, err := os.Open(inputFile)
-	if err != nil {
-		fmt.Println("unable to open input file:", err)
-		return
-	}
-
-	var header []string
-	var trainingData dt.Rows
-	var testData dt.Rows
-
-	csvr := csv.NewReader(r)
-	rows, err := csvr.ReadAll()
-	if err != nil {
-		fmt.Println("error reading csv:", err)
-	}
-
-	for i := range rows {
-		row := rows[i]
-		if i == 0 {
-			header = row
-			continue
-		}
-
-		var d []interface{}
-		for k := range row {
-			v := row[k]
-
-			if numberMatch.MatchString(v) {
-				f, err := strconv.ParseFloat(v,64)
-				if err != nil {
-					log.Println("unable to parse float:", err)
-					return
-				}
-				d = append(d, f)
-				continue
-			}
-			d = append(d, v)
-		}
-
-		if rand.Float64() < 0.65 {
-			trainingData = append(trainingData, d)
-			continue
-		}
-
-		testData = append(testData, d)
-	}
-
-	tree := dt.Build(trainingData, header)
-	dt.Print(tree, "")
-
-	for _, d := range testData {
-		fmt.Printf("Actual: %s, Predicted: %s, From: %v\n", d[len(d)-1], dt.PredictionMap(dt.Classify(d, tree).Predictions), d)
-	}
+	Exec(inputFile)
 }
-
-var (
-	numberMatch = regexp.MustCompile(`^\d+(?:\.\d+)?$`)
-)
